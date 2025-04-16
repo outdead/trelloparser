@@ -9,7 +9,7 @@ import (
 	"path"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/outdead/trelloparser/internal/utils/logger"
+	"github.com/outdead/golibs/logger"
 	"github.com/outdead/trelloparser/libs/trello"
 	"gopkg.in/yaml.v3"
 )

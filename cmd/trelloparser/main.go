@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/outdead/golibs/logger"
 	"github.com/outdead/trelloparser/internal/trelloparser"
 	"github.com/outdead/trelloparser/internal/trelloparser/config"
-	"github.com/outdead/trelloparser/internal/utils/logger"
 	"github.com/urfave/cli/v2"
 )
 

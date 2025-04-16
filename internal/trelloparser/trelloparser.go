@@ -3,9 +3,9 @@ package trelloparser
 import (
 	"fmt"
 
+	"github.com/outdead/golibs/logger"
 	"github.com/outdead/trelloparser/internal/trelloparser/config"
 	"github.com/outdead/trelloparser/internal/trelloparser/usecases"
-	"github.com/outdead/trelloparser/internal/utils/logger"
 )
 
 type TrelloParser struct {

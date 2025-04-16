@@ -8,8 +8,8 @@ import (
 
 	"github.com/nao1215/markdown"
 	"github.com/outdead/golibs/files"
+	"github.com/outdead/golibs/logger"
 	"github.com/outdead/trelloparser/internal/trelloparser/config"
-	"github.com/outdead/trelloparser/internal/utils/logger"
 	"github.com/outdead/trelloparser/libs/trello"
 	"github.com/outdead/trelloparser/libs/trello/entity"
 )

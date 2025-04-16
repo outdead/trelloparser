@@ -15,8 +15,8 @@ github.com/nao1215/markdown v0.7.1 h1:TQUnkTsTLfmjgq+EdHh23iBDmKYufJOTyhFdKqbApA
 github.com/nao1215/markdown v0.7.1/go.mod h1:uxC16Wvv5AW7hpDSJ0n6WpRdBiyG0p60IOzt74o53Tc=
 github.com/olekukonko/tablewriter v0.0.5 h1:P2Ga83D34wi1o9J6Wh1mRuqd4mF/x/lgBS7N7AbDhec=
 github.com/olekukonko/tablewriter v0.0.5/go.mod h1:hPp6KlRPjbx+hW8ykQs1w3UBbZlj6HuIJcUGPhkA7kY=
-github.com/outdead/golibs v0.0.0-20230619201053-19244864e916 h1:8UwU6xv5b/J60Soa0gT34YwbwRuX6AU/xcolFDOWJuQ=
-github.com/outdead/golibs v0.0.0-20230619201053-19244864e916/go.mod h1:VSLkysgOtL9cM1JkhevgBRJHLlKF122f43ygmVY8cJI=
+github.com/outdead/golibs v0.0.0-20250511133442-73f0179d8d10 h1:AZ3Qn5HJDtp9MSv4gP5qH30zlOoe6IMME64FyEAdvOc=
+github.com/outdead/golibs v0.0.0-20250511133442-73f0179d8d10/go.mod h1:/YCow4RNwbwJdWwC0/Mbff9/VvSAif2TfCTXbNUbrxU=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
