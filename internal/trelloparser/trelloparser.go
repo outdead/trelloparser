@@ -2,6 +2,7 @@ package trelloparser
 
 import (
 	"fmt"
+
 	"github.com/outdead/trelloparser/internal/trelloparser/config"
 	"github.com/outdead/trelloparser/internal/trelloparser/usecases"
 	"github.com/outdead/trelloparser/internal/utils/logger"
@@ -12,7 +13,6 @@ type TrelloParser struct {
 	version string
 	config  config.Config
 	logger  *logger.Logger
-	errors  chan error
 
 	service *usecases.Usecases
 }
@@ -24,7 +24,6 @@ func New(name, ver string, cfg *config.Config, log *logger.Logger) *TrelloParser
 		version: ver,
 		config:  *cfg,
 		logger:  log,
-		errors:  make(chan error, cfg.App.ErrorBuffer),
 	}
 }
 

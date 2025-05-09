@@ -1,5 +1,6 @@
 app:
   profiler_addr: "0.0.0.0:8099"
+  home_directory: "."
 
 logger:
   level: info

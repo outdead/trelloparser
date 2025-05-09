@@ -1,8 +1,8 @@
 # cmd
-Here you can find the entrypoint source files for all trello-obsidian binaries.
+Here you can find the entrypoint source files for all trelloparser binaries.
 
-* [`trello-obsidian`](trello-obsidian/) contains the entrypoint for the main trello-obsidian util.
+* [`trelloparser`](trelloparser/) contains the entrypoint for the main trelloparser util.
 
 ```
-go run cmd/<directory>/main.go -c path/to/config.yaml
+go run cmd/<directory>/main.go -c -c ./build/config/<directory>/local.yaml
 ```

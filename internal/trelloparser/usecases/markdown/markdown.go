@@ -12,16 +12,19 @@ import (
 	"github.com/outdead/trelloparser/internal/utils/logger"
 )
 
+// cardFooterTemplate defines the template for the card footer in markdown format.
 const cardFooterTemplate = `---
 
 - date: %s
 - tags: #todo`
 
+// Markdown struct holds configuration and logger for markdown generation.
 type Markdown struct {
 	config *config.Config
 	logger *logger.Logger
 }
 
+// New creates and returns a new Markdown instance with the given config and logger.
 func New(config *config.Config, logger *logger.Logger) *Markdown {
 	m := Markdown{
 		config: config,
@@ -31,6 +34,7 @@ func New(config *config.Config, logger *logger.Logger) *Markdown {
 	return &m
 }
 
+// CreateMarkdown generates markdown files from a Trello board JSON file.
 func (m *Markdown) CreateMarkdown(boardName string) error {
 	file, err := os.ReadFile(boardName)
 	if err != nil {
@@ -42,12 +46,15 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 		return err
 	}
 
-	// Prepare indexes
-
+	// Sort cards by due date (newest first).
+	// There is no way to sort by card creation date. Some creation date records
+	// can be retrieved from the Actions slice by type "createCard" and IDCard,
+	// but Trello does not export all the corresponding records to Actions.
 	sort.Slice(dash.Cards, func(i, j int) bool {
 		return dash.Cards[i].Due.After(dash.Cards[j].Due)
 	})
 
+	// Create a map of non-closed cards by their ID.
 	cards := make(map[string]entity.Card)
 	for _, card := range dash.Cards {
 		if !card.Closed {
@@ -55,68 +62,76 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 		}
 	}
 
+	// Create a map of checklists by their ID.
 	checklists := make(map[string]entity.Checklist)
 	for _, check := range dash.Checklists {
 		checklists[check.ID] = check
 	}
 
-	// Create main markdown
+	// Create main markdown file for the board.
 
-	f, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/" + dash.Name + ".md")
+	// Create output file in the configured directory.
+	// TODO: move directory name to config or application flags.
+	boardFile, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/" + dash.Name + ".md")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer boardFile.Close()
 
-	mdBoard := markdown.NewMarkdown(f)
+	boardMarkdown := markdown.NewMarkdown(boardFile)
 
 	for _, list := range dash.Lists {
 		if list.Closed {
 			continue
 		}
 
-		mdBoard.H2(list.Name)
+		boardMarkdown.H2(list.Name)
 
+		// Process each card in the list.
+		// TODO: This is a bad code. We process each card extra len(dash.Lists) times.
 		for _, card := range dash.Cards {
 			if card.IDList == list.ID {
-				cardName := "[[" + card.Name + "]]"
+				title := "[[" + card.Name + "]]"
 
 				if !card.Due.IsZero() {
-					cardName += " @{" + card.Due.Format("2006-01-02") + "}"
+					title += " @{" + card.Due.Format("2006-01-02") + "}"
 				}
 
-				mdBoard.CheckBox([]markdown.CheckBoxSet{
-					{Checked: card.DueComplete, Text: cardName},
+				// Add card as checkbox item (checked if completed).
+				boardMarkdown.CheckBox([]markdown.CheckBoxSet{
+					{Checked: card.DueComplete, Text: title},
 				})
 			}
 		}
 
-		mdBoard.PlainText("")
+		// Add empty line after each list for pretty markdown file viewing.
+		boardMarkdown.PlainText("")
 	}
 
-	if err := mdBoard.Build(); err != nil {
+	if err := boardMarkdown.Build(); err != nil {
 		return err
 	}
 
-	// Create checklists markdowns
-
+	// Create individual markdown files for each checklist.
+	// TODO: revert logic: process cards first and associate checklists to the card.
 	for _, checklist := range dash.Checklists {
+		// Get the card associated with this checklist.
 		card, ok := cards[checklist.IDCard]
 		if !ok || card.Closed {
 			continue
 		}
 
-		f, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/tododata/" + card.Name + ".md")
+		cardFile, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/tododata/" + card.Name + ".md")
 		if err != nil {
 			return err
 		}
 
-		cardBoard := markdown.NewMarkdown(f)
+		cardMarkdown := markdown.NewMarkdown(cardFile)
 
-		cardBoard.H1(card.Name)
+		cardMarkdown.H1(card.Name)
 
 		for _, item := range checklist.CheckItems {
-			cardBoard.CheckBox([]markdown.CheckBoxSet{
+			cardMarkdown.CheckBox([]markdown.CheckBoxSet{
 				{Checked: item.State == "complete", Text: item.Name},
 			})
 		}
@@ -126,15 +141,17 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 			date = card.Due.Format("2006-01-02")
 		}
 
-		cardBoard.PlainText("").PlainText(fmt.Sprintf(cardFooterTemplate, date))
+		// Add footer with date and tags.
+		// TODO: Add a switch to the configuration file.
+		cardMarkdown.PlainText("").PlainText(fmt.Sprintf(cardFooterTemplate, date))
 
-		if err := cardBoard.Build(); err != nil {
-			_ = f.Close()
+		if err := cardMarkdown.Build(); err != nil {
+			_ = cardFile.Close()
 
 			return err
 		}
 
-		if err := f.Close(); err != nil {
+		if err := cardFile.Close(); err != nil {
 			return err
 		}
 	}
