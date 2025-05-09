@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+vendor/
+devtools/
+.tmp/
+logs/
+
+.env
+
+build/config/deploy/*
+!build/config/deploy/dist.sh
+build/config/trelloparser/*
+!build/config/trelloparser/dist.yaml
+
+/trelloparser
