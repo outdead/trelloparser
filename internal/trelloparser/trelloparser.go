@@ -34,6 +34,7 @@ func (d *TrelloParser) Run() error {
 
 	d.logger.Infof("start %s daemon success", d.name)
 
+	// TODO: Add Dashboard filename to config.
 	if err := d.service.CreateMarkdown(d.config.App.HomeDirectory + "/.tmp/data/source/Trello - todo.json"); err != nil {
 		return err
 	}

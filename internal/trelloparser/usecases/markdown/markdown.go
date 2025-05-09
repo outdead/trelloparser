@@ -13,6 +13,7 @@ import (
 )
 
 // cardFooterTemplate defines the template for the card footer in markdown format.
+// TODO: Add to config.
 const cardFooterTemplate = `---
 
 - date: %s
@@ -85,8 +86,12 @@ func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard, checklistsCache C
 				continue
 			}
 
+			// Add internal link to title in Obsidian format.
+			// Todo: Add template to config.
 			title := "[[" + card.Name + "]]"
 
+			// Add date to card title on Dashboard.
+			// TODO: Add to config.
 			if !card.Due.IsZero() {
 				title += " @{" + card.Due.Format("2006-01-02") + "}"
 			}
@@ -160,11 +165,7 @@ func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card, checkl
 	// TODO: Add a switch to the configuration file.
 	cardMarkdown.PlainText(fmt.Sprintf(cardFooterTemplate, date))
 
-	if err := cardMarkdown.Build(); err != nil {
-		return err
-	}
-
-	return nil
+	return cardMarkdown.Build()
 }
 
 // parseDashboardJSON reads and parses a Trello board JSON file into a Dashboard struct.
