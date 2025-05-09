@@ -18,6 +18,11 @@ const cardFooterTemplate = `---
 - date: %s
 - tags: #todo`
 
+// ChecklistsCache is a map that stores checklists by their ID for quick lookup.
+// The map key is the checklist ID (string) and the value is the corresponding Checklist entity.
+// This cache helps avoid repeated linear searches when processing multiple cards.
+type ChecklistsCache map[string]entity.Checklist
+
 // Markdown struct holds configuration and logger for markdown generation.
 type Markdown struct {
 	config *config.Config
@@ -25,10 +30,10 @@ type Markdown struct {
 }
 
 // New creates and returns a new Markdown instance with the given config and logger.
-func New(config *config.Config, logger *logger.Logger) *Markdown {
+func New(cfg *config.Config, log *logger.Logger) *Markdown {
 	m := Markdown{
-		config: config,
-		logger: logger,
+		config: cfg,
+		logger: log,
 	}
 
 	return &m
@@ -36,38 +41,21 @@ func New(config *config.Config, logger *logger.Logger) *Markdown {
 
 // CreateMarkdown generates markdown files from a Trello board JSON file.
 func (m *Markdown) CreateMarkdown(boardName string) error {
-	file, err := os.ReadFile(boardName)
+	dash, err := m.parseDashboardJSON(boardName)
 	if err != nil {
 		return err
 	}
 
-	var dash entity.Dashboard
-	if err = json.Unmarshal(file, &dash); err != nil {
-		return err
-	}
-
-	// Sort cards by due date (newest first).
-	// There is no way to sort by card creation date. Some creation date records
-	// can be retrieved from the Actions slice by type "createCard" and IDCard,
-	// but Trello does not export all the corresponding records to Actions.
-	sort.Slice(dash.Cards, func(i, j int) bool {
-		return dash.Cards[i].Due.After(dash.Cards[j].Due)
-	})
-
-	// Create a map of non-closed cards by their ID.
-	cards := make(map[string]entity.Card)
-	for _, card := range dash.Cards {
-		if !card.Closed {
-			cards[card.ID] = card
-		}
-	}
-
 	// Create a map of checklists by their ID.
-	checklists := make(map[string]entity.Checklist)
-	for _, check := range dash.Checklists {
-		checklists[check.ID] = check
+	checklistsCache := make(ChecklistsCache)
+	for i := range dash.Checklists {
+		checklistsCache[dash.Checklists[i].ID] = dash.Checklists[i]
 	}
 
+	return m.createMarkdownFiles(dash, checklistsCache)
+}
+
+func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard, checklistsCache ChecklistsCache) error {
 	// Create markdown file for the Dashboard.
 	// TODO: move directory name to config or application flags.
 	boardFile, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/" + dash.Name + ".md")
@@ -78,7 +66,9 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 
 	boardMarkdown := markdown.NewMarkdown(boardFile)
 
-	for _, list := range dash.Lists {
+	for i := range dash.Lists {
+		list := &dash.Lists[i]
+
 		if list.Closed {
 			continue
 		}
@@ -86,25 +76,30 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 		boardMarkdown.H2(list.Name)
 
 		// Process each card in the list.
-		// TODO: We process each card extra len(dash.Lists) times. Good place for optimization with aggregated lists or/and cards.
-		for _, card := range dash.Cards {
-			if card.IDList == list.ID {
-				title := "[[" + card.Name + "]]"
+		// TODO: We process each card extra len(dash.Lists) times.
+		// Good place for optimization with aggregated lists or/and cards.
+		for j := range dash.Cards {
+			card := dash.Cards[j]
 
-				if !card.Due.IsZero() {
-					title += " @{" + card.Due.Format("2006-01-02") + "}"
-				}
+			if card.IDList != list.ID {
+				continue
+			}
 
-				// Add card as checkbox item (checked if completed).
-				boardMarkdown.CheckBox([]markdown.CheckBoxSet{
-					{Checked: card.DueComplete, Text: title},
-				})
+			title := "[[" + card.Name + "]]"
 
-				cardName := m.config.App.HomeDirectory + "/.tmp/data/response/tododata/" + card.Name + ".md"
+			if !card.Due.IsZero() {
+				title += " @{" + card.Due.Format("2006-01-02") + "}"
+			}
 
-				if err := m.createCard(cardName, &card, checklists); err != nil {
-					return err
-				}
+			// Add card as checkbox item (checked if completed).
+			boardMarkdown.CheckBox([]markdown.CheckBoxSet{
+				{Checked: card.DueComplete, Text: title},
+			})
+
+			cardName := m.config.App.HomeDirectory + "/.tmp/data/response/tododata/" + card.Name + ".md"
+
+			if err := m.createMarkdownCard(cardName, &card, checklistsCache); err != nil {
+				return err
 			}
 		}
 
@@ -112,15 +107,11 @@ func (m *Markdown) CreateMarkdown(boardName string) error {
 		boardMarkdown.PlainText("")
 	}
 
-	if err := boardMarkdown.Build(); err != nil {
-		return err
-	}
-
-	return nil
+	return boardMarkdown.Build()
 }
 
-// createCard create individual markdown files received Card.
-func (m *Markdown) createCard(fileName string, card *entity.Card, checklists map[string]entity.Checklist) error {
+// createMarkdownCard create individual markdown files received Card.
+func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card, checklistsCache ChecklistsCache) error {
 	if card.Closed {
 		return nil
 	}
@@ -142,17 +133,17 @@ func (m *Markdown) createCard(fileName string, card *entity.Card, checklists map
 	cardMarkdown.PlainText("")
 
 	for _, checkID := range card.IDChecklists {
-		checklist, ok := checklists[checkID]
+		checklist, ok := checklistsCache[checkID]
 		if !ok {
 			continue
 		}
 
 		cardMarkdown.H2(checklist.Name)
 
-		for _, checkItem := range checklist.CheckItems {
-			if checkItem.IDChecklist == checkID {
+		for i := range checklist.CheckItems {
+			if checklist.CheckItems[i].IDChecklist == checkID {
 				cardMarkdown.CheckBox([]markdown.CheckBoxSet{
-					{Checked: checkItem.State == "complete", Text: checkItem.Name},
+					{Checked: checklist.CheckItems[i].State == "complete", Text: checklist.CheckItems[i].Name},
 				})
 			}
 		}
@@ -174,4 +165,39 @@ func (m *Markdown) createCard(fileName string, card *entity.Card, checklists map
 	}
 
 	return nil
+}
+
+// parseDashboardJSON reads and parses a Trello board JSON file into a Dashboard struct.
+// It takes the board filename as input and returns a pointer to the Dashboard and an error.
+// The function performs the following steps:
+//  1. Reads the JSON file from disk
+//  2. Unmarshals the JSON into a Dashboard struct
+//  3. Sorts the cards by due date in descending order (newest first)
+//
+// Note: Cards cannot be sorted by creation date as Trello doesn't export complete creation records.
+// Returns:
+//   - *entity.Dashboard: Pointer to the populated dashboard structure
+//   - error: Any error that occurred during file reading or JSON parsing.
+//
+// TODO: Add sortCards param.
+func (m *Markdown) parseDashboardJSON(boardName string) (*entity.Dashboard, error) {
+	file, err := os.ReadFile(boardName)
+	if err != nil {
+		return nil, err
+	}
+
+	var dash entity.Dashboard
+	if err := json.Unmarshal(file, &dash); err != nil {
+		return nil, err
+	}
+
+	// Sort cards by due date (newest first).
+	// There is no way to sort by card creation date. Some creation date records
+	// can be retrieved from the Actions slice by type "createMarkdownCard" and IDCard,
+	// but Trello does not export all the corresponding records to Actions.
+	sort.Slice(dash.Cards, func(i, j int) bool {
+		return dash.Cards[i].Due.After(dash.Cards[j].Due)
+	})
+
+	return &dash, nil
 }

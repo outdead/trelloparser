@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,15 +13,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var ErrInvalidConfig = errors.New("invalid config")
+
 // Config contains config data structure.
 type Config struct {
-	App    App           `json:"app" yaml:"app"`
+	App    App           `json:"app"    yaml:"app"`
 	Logger logger.Config `json:"logger" yaml:"logger"`
 }
 
 // NewConfig parses config from file.
 func NewConfig(name string, noenv bool) (*Config, error) {
-	var cfg = new(Config)
+	cfg := new(Config)
 	if err := cfg.ParseFromFile(name); err != nil {
 		return nil, err
 	}
@@ -51,7 +54,7 @@ func (cfg *Config) ParseFromFile(name string) error {
 	case ".json":
 		err = json.Unmarshal(file, cfg)
 	default:
-		err = fmt.Errorf("invalid config extension: %s", ext)
+		err = fmt.Errorf("%w extension: %s", ErrInvalidConfig, ext)
 	}
 
 	return err

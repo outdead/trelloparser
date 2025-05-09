@@ -8,8 +8,7 @@ type Member struct {
 	AvatarURL       string `json:"avatarUrl"`
 	Bio             string `json:"bio"`
 	BioData         struct {
-		Emoji struct {
-		} `json:"emoji"`
+		Emoji struct{} `json:"emoji"`
 	} `json:"bioData"`
 	Confirmed                bool          `json:"confirmed"`
 	FullName                 string        `json:"fullName"`

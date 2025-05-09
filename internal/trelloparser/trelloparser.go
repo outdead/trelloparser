@@ -46,7 +46,7 @@ func (d *TrelloParser) Close() {
 }
 
 func (d *TrelloParser) init() error {
-	if err := d.logger.Customize(&d.config.Logger); err != nil {
+	if err := d.logger.Customize(); err != nil {
 		return fmt.Errorf("customize logger error: %w", err)
 	}
 

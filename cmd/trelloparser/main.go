@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/outdead/trelloparser/internal/trelloparser"
@@ -85,24 +84,9 @@ func action(log *logger.Logger) func(c *cli.Context) error {
 			return fmt.Errorf("validate config: %w", err)
 		}
 
-		// Create goroutine process for start profiler.
-		serveHTTPProfiler(cfg.App.ProfilerAddr, log)
-
 		o := trelloparser.New(Name, Version, cfg, log)
 		defer o.Close()
 
 		return o.Run()
-	}
-}
-
-// serveHTTPProfiler starts an Openapi server on the given port and allows you to
-// profile the service by reference {host}:{port}/debug/pprof/.
-func serveHTTPProfiler(addr string, log *logger.Logger) {
-	if addr != "" {
-		go func() {
-			log.Error(http.ListenAndServe(addr, nil))
-		}()
-
-		log.Infof("profiler started on %s", addr)
 	}
 }

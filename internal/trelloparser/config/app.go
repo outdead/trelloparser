@@ -6,7 +6,6 @@ import (
 )
 
 type App struct {
-	ProfilerAddr  string `json:"profiler_addr" yaml:"profiler_addr"`
 	HomeDirectory string `json:"home_directory" yaml:"home_directory"`
 }
 
