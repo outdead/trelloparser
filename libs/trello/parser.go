@@ -15,8 +15,8 @@ type Parser struct {
 	config Config
 }
 
-func NewParser(scg Config) *Parser {
-	return &Parser{config: scg}
+func NewParser(cfg Config) *Parser {
+	return &Parser{config: cfg}
 }
 
 // Parse reads and parses a Trello board JSON file into a Dashboard struct.

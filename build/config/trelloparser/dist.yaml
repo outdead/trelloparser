@@ -8,5 +8,5 @@ markdown:
   source_file: "<path/to/trello.json>"
   data_directory: "./data"
   add_date_to_cards: true
-  format: "markdown"
-  footer: "---\n\n- date: %s\n- tags: #todo"
+  format: "markdown" # markdown/obsidian
+  footer: "" # Text that will be added to each card at the bottom. It is possible to use one placeholder %s, which allows adding due date cards.
