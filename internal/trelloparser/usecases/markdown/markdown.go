@@ -3,7 +3,6 @@ package markdown
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -120,7 +119,7 @@ func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card) error 
 	cardMarkdown.H1(card.Name)
 
 	if card.Desc != "" {
-		cardMarkdown.PlainText(url.QueryEscape(card.Desc))
+		cardMarkdown.PlainText(card.Desc)
 	}
 
 	cardMarkdown.PlainText("")
