@@ -26,7 +26,7 @@ linters-settings:
     ignore-comments: true
   gocognit:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 15
+    min-complexity: 20
   goconst:
     # minimal length of string constant, 3 by default
     min-len: 3
@@ -89,7 +89,7 @@ linters-settings:
   varnamelen:
     # The longest distance, in source lines, that is being considered a "small scope." (defaults to 5)
     # Variables used in at most this many lines will be ignored.
-    max-distance: 5
+    max-distance: 10
     # The minimum length of a variable's name that is considered "long." (defaults to 3)
     # Variable names that are at least this long will be ignored.
     min-name-length: 3

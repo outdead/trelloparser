@@ -10,6 +10,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/outdead/trelloparser/internal/utils/logger"
+	"github.com/outdead/trelloparser/libs/trello"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,8 +18,10 @@ var ErrInvalidConfig = errors.New("invalid config")
 
 // Config contains config data structure.
 type Config struct {
-	App    App           `json:"app"    yaml:"app"`
-	Logger logger.Config `json:"logger" yaml:"logger"`
+	App      App           `json:"app"      yaml:"app"`
+	Logger   logger.Config `json:"logger"   yaml:"logger"`
+	Trello   trello.Config `json:"trello"   yaml:"trello"`
+	Markdown Markdown      `json:"markdown" yaml:"markdown"`
 }
 
 // NewConfig parses config from file.
@@ -73,6 +76,10 @@ func (cfg *Config) Validate() error {
 // SetDefaults adds default data to config struct.
 func (cfg *Config) SetDefaults() error {
 	if err := cfg.App.SetDefaults(); err != nil {
+		return err
+	}
+
+	if err := cfg.Markdown.SetDefaults(); err != nil {
 		return err
 	}
 

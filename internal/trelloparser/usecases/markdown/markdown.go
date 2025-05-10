@@ -1,33 +1,27 @@
 package markdown
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
-	"sort"
+	"strings"
 
 	"github.com/nao1215/markdown"
+	"github.com/outdead/golibs/files"
 	"github.com/outdead/trelloparser/internal/trelloparser/config"
-	"github.com/outdead/trelloparser/internal/trelloparser/entity"
 	"github.com/outdead/trelloparser/internal/utils/logger"
+	"github.com/outdead/trelloparser/libs/trello"
+	"github.com/outdead/trelloparser/libs/trello/entity"
 )
 
-// cardFooterTemplate defines the template for the card footer in markdown format.
-// TODO: Add to config.
-const cardFooterTemplate = `---
-
-- date: %s
-- tags: #todo`
-
-// ChecklistsCache is a map that stores checklists by their ID for quick lookup.
-// The map key is the checklist ID (string) and the value is the corresponding Checklist entity.
-// This cache helps avoid repeated linear searches when processing multiple cards.
-type ChecklistsCache map[string]entity.Checklist
+var ErrNotExistResultFolder = errors.New("not exist result folder")
 
 // Markdown struct holds configuration and logger for markdown generation.
 type Markdown struct {
 	config *config.Config
 	logger *logger.Logger
+	parser *trello.Parser
 }
 
 // New creates and returns a new Markdown instance with the given config and logger.
@@ -35,31 +29,39 @@ func New(cfg *config.Config, log *logger.Logger) *Markdown {
 	m := Markdown{
 		config: cfg,
 		logger: log,
+		parser: trello.NewParser(cfg.Trello),
 	}
+
+	_ = m.prepareDataDirectory()
 
 	return &m
 }
 
 // CreateMarkdown generates markdown files from a Trello board JSON file.
 func (m *Markdown) CreateMarkdown(boardName string) error {
-	dash, err := m.parseDashboardJSON(boardName)
+	dash, err := m.parser.ParseAndAggregate(boardName)
 	if err != nil {
 		return err
 	}
 
-	// Create a map of checklists by their ID.
-	checklistsCache := make(ChecklistsCache)
-	for i := range dash.Checklists {
-		checklistsCache[dash.Checklists[i].ID] = dash.Checklists[i]
-	}
-
-	return m.createMarkdownFiles(dash, checklistsCache)
+	return m.createMarkdownFiles(dash)
 }
 
-func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard, checklistsCache ChecklistsCache) error {
+// createMarkdownFiles generates markdown documentation for a Trello dashboard.
+// It creates:
+//   - A main dashboard file with all lists and cards
+//   - Individual card files in a subdirectory
+//
+// The output format can be customized based on configuration (standard markdown or Obsidian-flavored).
+//
+// Parameters:
+//   - dash: Pointer to the dashboard entity containing all data to document
+//
+// Returns:
+//   - error: Returns any file creation or writing errors encountered.
+func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard) error {
 	// Create markdown file for the Dashboard.
-	// TODO: move directory name to config or application flags.
-	boardFile, err := os.Create(m.config.App.HomeDirectory + "/.tmp/data/response/" + dash.Name + ".md")
+	boardFile, err := os.Create(m.config.Markdown.ResultDirectory + "/" + dash.Name + ".md")
 	if err != nil {
 		return err
 	}
@@ -77,33 +79,19 @@ func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard, checklistsCache C
 		boardMarkdown.H2(list.Name)
 
 		// Process each card in the list.
-		// TODO: We process each card extra len(dash.Lists) times.
-		// Good place for optimization with aggregated lists or/and cards.
-		for j := range dash.Cards {
-			card := dash.Cards[j]
+		for j := range list.Cards {
+			card := list.Cards[j]
 
-			if card.IDList != list.ID {
-				continue
-			}
-
-			// Add internal link to title in Obsidian format.
-			// Todo: Add template to config.
-			title := "[[" + card.Name + "]]"
-
-			// Add date to card title on Dashboard.
-			// TODO: Add to config.
-			if !card.Due.IsZero() {
-				title += " @{" + card.Due.Format("2006-01-02") + "}"
-			}
+			title := m.getCardTitle(&card)
 
 			// Add card as checkbox item (checked if completed).
 			boardMarkdown.CheckBox([]markdown.CheckBoxSet{
 				{Checked: card.DueComplete, Text: title},
 			})
 
-			cardName := m.config.App.HomeDirectory + "/.tmp/data/response/tododata/" + card.Name + ".md"
+			cardName := m.config.Markdown.ResultDirectory + "/cards/" + card.Name + ".md"
 
-			if err := m.createMarkdownCard(cardName, &card, checklistsCache); err != nil {
+			if err := m.createMarkdownCard(cardName, &card); err != nil {
 				return err
 			}
 		}
@@ -116,7 +104,7 @@ func (m *Markdown) createMarkdownFiles(dash *entity.Dashboard, checklistsCache C
 }
 
 // createMarkdownCard create individual markdown files received Card.
-func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card, checklistsCache ChecklistsCache) error {
+func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card) error {
 	if card.Closed {
 		return nil
 	}
@@ -132,73 +120,85 @@ func (m *Markdown) createMarkdownCard(fileName string, card *entity.Card, checkl
 	cardMarkdown.H1(card.Name)
 
 	if card.Desc != "" {
-		cardMarkdown.PlainText(card.Desc)
+		cardMarkdown.PlainText(url.QueryEscape(card.Desc))
 	}
 
 	cardMarkdown.PlainText("")
 
-	for _, checkID := range card.IDChecklists {
-		checklist, ok := checklistsCache[checkID]
-		if !ok {
-			continue
-		}
+	for i := range card.Checklists {
+		checklist := &card.Checklists[i]
 
 		cardMarkdown.H2(checklist.Name)
 
 		for i := range checklist.CheckItems {
-			if checklist.CheckItems[i].IDChecklist == checkID {
-				cardMarkdown.CheckBox([]markdown.CheckBoxSet{
-					{Checked: checklist.CheckItems[i].State == "complete", Text: checklist.CheckItems[i].Name},
-				})
-			}
+			cardMarkdown.CheckBox([]markdown.CheckBoxSet{
+				{Checked: checklist.CheckItems[i].State == "complete", Text: checklist.CheckItems[i].Name},
+			})
 		}
 
 		cardMarkdown.PlainText("")
 	}
 
-	date := ""
-	if !card.Due.IsZero() {
-		date = card.Due.Format("2006-01-02")
-	}
-
-	// Add footer with date and tags.
-	// TODO: Add a switch to the configuration file.
-	cardMarkdown.PlainText(fmt.Sprintf(cardFooterTemplate, date))
+	m.addCardFooter(cardMarkdown, card)
 
 	return cardMarkdown.Build()
 }
 
-// parseDashboardJSON reads and parses a Trello board JSON file into a Dashboard struct.
-// It takes the board filename as input and returns a pointer to the Dashboard and an error.
-// The function performs the following steps:
-//  1. Reads the JSON file from disk
-//  2. Unmarshals the JSON into a Dashboard struct
-//  3. Sorts the cards by due date in descending order (newest first)
-//
-// Note: Cards cannot be sorted by creation date as Trello doesn't export complete creation records.
-// Returns:
-//   - *entity.Dashboard: Pointer to the populated dashboard structure
-//   - error: Any error that occurred during file reading or JSON parsing.
-//
-// TODO: Add sortCards param.
-func (m *Markdown) parseDashboardJSON(boardName string) (*entity.Dashboard, error) {
-	file, err := os.ReadFile(boardName)
-	if err != nil {
-		return nil, err
+// getCardTitle returns title with internal link and date to title in configured format.
+func (m *Markdown) getCardTitle(card *entity.Card) string {
+	title := card.Name
+
+	switch m.config.Markdown.Format {
+	case "markdown":
+		title = fmt.Sprintf("[%s](cards/%s.md)", card.Name, card.Name)
+
+		if !card.Due.IsZero() && m.config.Markdown.AddDateToCards {
+			title += " `" + card.Due.Format("2006-01-02") + "`"
+		}
+	case "obsidian":
+		title = "[[" + card.Name + "]]"
+
+		if !card.Due.IsZero() && m.config.Markdown.AddDateToCards {
+			title += " @{" + card.Due.Format("2006-01-02") + "}"
+		}
 	}
 
-	var dash entity.Dashboard
-	if err := json.Unmarshal(file, &dash); err != nil {
-		return nil, err
+	return title
+}
+
+// addCardFooter adds footer with date and tags.
+func (m *Markdown) addCardFooter(cardMarkdown *markdown.Markdown, card *entity.Card) {
+	if m.config.Markdown.Footer != "" {
+		date := ""
+		if !card.Due.IsZero() {
+			date = card.Due.Format("2006-01-02")
+		}
+
+		var footer string
+		if strings.Contains(m.config.Markdown.Footer, "%s") {
+			footer = fmt.Sprintf(m.config.Markdown.Footer, date)
+		} else {
+			footer = m.config.Markdown.Footer
+		}
+
+		cardMarkdown.PlainText(footer)
+	}
+}
+
+func (m *Markdown) prepareDataDirectory() error {
+	if m.config.Markdown.ResultDirectory == "" {
+		return ErrNotExistResultFolder
 	}
 
-	// Sort cards by due date (newest first).
-	// There is no way to sort by card creation date. Some creation date records
-	// can be retrieved from the Actions slice by type "createMarkdownCard" and IDCard,
-	// but Trello does not export all the corresponding records to Actions.
-	sort.Slice(dash.Cards, func(i, j int) bool {
-		return dash.Cards[i].Due.After(dash.Cards[j].Due)
-	})
+	m.logger.Infof("markdown: preparing data directory: %s", m.config.Markdown.ResultDirectory)
 
-	return &dash, nil
+	if err := os.RemoveAll(m.config.Markdown.ResultDirectory + "/"); err != nil {
+		return err
+	}
+
+	if err := files.MkdirAll(m.config.Markdown.ResultDirectory + "/cards"); err != nil {
+		return err
+	}
+
+	return nil
 }

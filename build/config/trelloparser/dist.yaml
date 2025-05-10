@@ -3,3 +3,10 @@ app:
 
 logger:
   level: info
+
+markdown:
+  source_file: "<path/to/trello.json>"
+  data_directory: "./data"
+  add_date_to_cards: true
+  format: "markdown"
+  footer: "---\n\n- date: %s\n- tags: #todo"

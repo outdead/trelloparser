@@ -112,4 +112,6 @@ type Card struct {
 	Attachments        []interface{} `json:"attachments"`
 	PluginData         []interface{} `json:"pluginData"`
 	CustomFieldItems   []interface{} `json:"customFieldItems"`
+
+	Checklists []Checklist `json:"checklists"`
 }

@@ -30,4 +30,6 @@ type List struct {
 		} `json:"cards"`
 	} `json:"limits"`
 	NodeID string `json:"nodeId"`
+
+	Cards []Card `json:"cards"`
 }
